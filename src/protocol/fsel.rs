@@ -1,5 +1,6 @@
-use crate::protocol::{self, LE, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes, WriteBytesExt,
-               WriteToBytes};
+use crate::protocol::{
+    self, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes, WriteBytesExt, WriteToBytes, LE,
+};
 use std::borrow::Cow;
 use std::{io, mem};
 
@@ -111,7 +112,11 @@ impl ReadFromBytes for Sele<'static> {
         let fixture_count = reader.read_u16::<LE>()?;
         let fixture_identifiers = protocol::read_new_vec(reader, fixture_count as _)?;
         let fixture_identifiers = Cow::Owned(fixture_identifiers);
-        let sele = Sele { complete, reserved, fixture_identifiers };
+        let sele = Sele {
+            complete,
+            reserved,
+            fixture_identifiers,
+        };
         Ok(sele)
     }
 }
@@ -121,7 +126,9 @@ impl ReadFromBytes for DeSe<'static> {
         let fixture_count = reader.read_u16::<LE>()?;
         let fixture_identifiers = protocol::read_new_vec(reader, fixture_count as _)?;
         let fixture_identifiers = Cow::Owned(fixture_identifiers);
-        let dese = DeSe { fixture_identifiers };
+        let dese = DeSe {
+            fixture_identifiers,
+        };
         Ok(dese)
     }
 }
@@ -129,15 +136,14 @@ impl ReadFromBytes for DeSe<'static> {
 impl<'a> SizeBytes for Sele<'a> {
     fn size_bytes(&self) -> usize {
         mem::size_of::<u8>()
-        + mem::size_of::<u8>()
-        + mem::size_of::<u16>()
-        + self.fixture_identifiers.len() * mem::size_of::<u16>()
+            + mem::size_of::<u8>()
+            + mem::size_of::<u16>()
+            + self.fixture_identifiers.len() * mem::size_of::<u16>()
     }
 }
 
 impl<'a> SizeBytes for DeSe<'a> {
     fn size_bytes(&self) -> usize {
-        mem::size_of::<u16>()
-        + self.fixture_identifiers.len() * mem::size_of::<u16>()
+        mem::size_of::<u16>() + self.fixture_identifiers.len() * mem::size_of::<u16>()
     }
 }

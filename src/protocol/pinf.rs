@@ -1,5 +1,7 @@
-use crate::protocol::{self, LE, ReadBytes, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes,
-               WriteBytesExt, WriteToBytes};
+use crate::protocol::{
+    self, ReadBytes, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes, WriteBytesExt,
+    WriteToBytes, LE,
+};
 use std::ffi::CString;
 use std::{io, mem};
 
@@ -132,7 +134,12 @@ impl ReadFromBytes for PLoc {
         let kind = reader.read_bytes()?;
         let name = reader.read_bytes()?;
         let state = reader.read_bytes()?;
-        let ploc = PLoc { listening_tcp_port, kind, name, state };
+        let ploc = PLoc {
+            listening_tcp_port,
+            kind,
+            name,
+            state,
+        };
         Ok(ploc)
     }
 }
@@ -146,8 +153,8 @@ impl SizeBytes for PNam {
 impl SizeBytes for PLoc {
     fn size_bytes(&self) -> usize {
         mem::size_of::<u16>()
-        + self.kind.size_bytes()
-        + self.name.size_bytes()
-        + self.state.size_bytes()
+            + self.kind.size_bytes()
+            + self.name.size_bytes()
+            + self.state.size_bytes()
     }
 }

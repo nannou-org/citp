@@ -1,5 +1,7 @@
-use crate::protocol::{self, LE, ReadBytes, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes,
-               WriteBytesExt, WriteToBytes};
+use crate::protocol::{
+    self, ReadBytes, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes, WriteBytesExt,
+    WriteToBytes, LE,
+};
 use std::borrow::Cow;
 use std::ffi::CString;
 use std::{io, mem};
@@ -106,7 +108,9 @@ impl ReadFromBytes for SFra<'static> {
         let fixture_count = reader.read_u16::<LE>()?;
         let fixture_identifiers = protocol::read_new_vec(reader, fixture_count as _)?;
         let fixture_identifiers = Cow::Owned(fixture_identifiers);
-        let sfra = SFra { fixture_identifiers };
+        let sfra = SFra {
+            fixture_identifiers,
+        };
         Ok(sfra)
     }
 }
@@ -117,23 +121,27 @@ impl ReadFromBytes for Fram {
         let frame_filter_count = reader.read_u8()?;
         let frame_gobo_count = reader.read_u8()?;
         let frame_names = reader.read_bytes()?;
-        let fram = Fram { fixture_identifier, frame_filter_count, frame_gobo_count, frame_names };
+        let fram = Fram {
+            fixture_identifier,
+            frame_filter_count,
+            frame_gobo_count,
+            frame_names,
+        };
         Ok(fram)
     }
 }
 
 impl<'a> SizeBytes for SFra<'a> {
     fn size_bytes(&self) -> usize {
-        mem::size_of::<u16>()
-        + self.fixture_identifiers.len() * mem::size_of::<u16>()
+        mem::size_of::<u16>() + self.fixture_identifiers.len() * mem::size_of::<u16>()
     }
 }
 
 impl SizeBytes for Fram {
     fn size_bytes(&self) -> usize {
         mem::size_of::<u16>()
-        + mem::size_of::<u8>()
-        + mem::size_of::<u8>()
-        + self.frame_names.size_bytes()
+            + mem::size_of::<u8>()
+            + mem::size_of::<u8>()
+            + self.frame_names.size_bytes()
     }
 }

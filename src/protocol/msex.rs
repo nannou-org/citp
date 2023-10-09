@@ -49,4 +49,3 @@ pub struct CInf<'a> {
     /// A hint that future versions of this message may contain trailing data.
     pub future_message_data: Cow<'a, [u8]>,
 }
-
