@@ -12,3 +12,4 @@ edition = "2021"
 
 [dependencies]
 byteorder = "1.2.3"
+ucs2 = "0.3.2"
