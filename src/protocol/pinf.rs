@@ -73,15 +73,15 @@ pub struct PLoc {
 }
 
 impl Header {
-    pub const CONTENT_TYPE: &'static [u8] = b"PINF";
+    pub const CONTENT_TYPE: &'static [u8; 4] = b"PINF";
 }
 
 impl PNam {
-    pub const CONTENT_TYPE: &'static [u8] = b"PNam";
+    pub const CONTENT_TYPE: &'static [u8; 4] = b"PNam";
 }
 
 impl PLoc {
-    pub const CONTENT_TYPE: &'static [u8] = b"PLoc";
+    pub const CONTENT_TYPE: &'static [u8; 4] = b"PLoc";
 }
 
 impl WriteToBytes for Header {

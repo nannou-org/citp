@@ -13,3 +13,12 @@ edition = "2021"
 [dependencies]
 byteorder = "1.2.3"
 ucs2 = "0.3.2"
+
+[dev-dependencies]
+ansi_term = "0.12"
+rand = "0.8.4"
+socket2 = "0.5.3"
+
+[[example]]
+name = "demo"
+path = "examples/demo/demo.rs"
