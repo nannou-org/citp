@@ -1,6 +1,6 @@
 [package]
 name = "citp"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["mitchmindtree <mitchell.nordine@gmail.com>"]
 description = "A full implementation of CITP - Controller Interface Transport Protocol."
 readme = "README.md"
@@ -12,3 +12,4 @@ edition = "2021"
 
 [dependencies]
 byteorder = "1.2.3"
+ucs2 = "0.3.2"

@@ -21,6 +21,7 @@ specification describes. The spec can be found at
   - [x] `protocol::fsel`
   - [x] `protocol::finf`
   - [ ] `protocol::msex`
+  - [x] `protocol::caex`
 
 - [ ] The **net** module provides an implementation of the necessary
   broadcasting, multicasting, UDP and TCP streams described within the protocol
