@@ -1,5 +1,7 @@
-use protocol::{self, LE, ReadBytes, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes,
-               WriteBytesExt, WriteToBytes};
+use crate::protocol::{
+    self, ReadBytes, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes, WriteBytesExt,
+    WriteToBytes, LE,
+};
 use std::borrow::Cow;
 use std::ffi::CString;
 use std::{self, io, mem};
@@ -34,7 +36,7 @@ pub struct Message<T> {
 #[repr(C)]
 pub struct Capa<'a> {
     /// A list of capabilities.
-    /// 
+    ///
     /// See the `Caps` associated constants for possible capabilities.
     ///
     /// - 1   - ChLs channel list.
@@ -193,7 +195,7 @@ impl Sxus {
 
 impl WriteToBytes for Header {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
-        writer.write_bytes(&self.citp_header)?;
+        writer.write_bytes(self.citp_header)?;
         writer.write_u32::<LE>(self.content_type)?;
         Ok(())
     }
@@ -204,7 +206,7 @@ where
     T: WriteToBytes,
 {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
-        writer.write_bytes(&self.sdmx_header)?;
+        writer.write_bytes(self.sdmx_header)?;
         writer.write_bytes(&self.message)?;
         Ok(())
     }
@@ -290,7 +292,9 @@ impl ReadFromBytes for Capa<'static> {
     fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
         let capability_count: u16 = reader.read_bytes()?;
         let capabilities = protocol::read_new_vec(reader, capability_count as _)?;
-        let capabilities = Capa { capabilities: Cow::Owned(capabilities) };
+        let capabilities = Capa {
+            capabilities: Cow::Owned(capabilities),
+        };
         Ok(capabilities)
     }
 }
@@ -299,7 +303,10 @@ impl ReadFromBytes for UNam {
     fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
         let universe_index = reader.read_u8()?;
         let universe_name = reader.read_bytes()?;
-        let unam = UNam { universe_index, universe_name };
+        let unam = UNam {
+            universe_index,
+            universe_name,
+        };
         Ok(unam)
     }
 }
@@ -335,7 +342,11 @@ impl ReadFromBytes for ChannelLevel {
         let universe_index = reader.read_u8()?;
         let channel = reader.read_u16::<LE>()?;
         let channel_level = reader.read_u8()?;
-        let ch = ChannelLevel { universe_index, channel, channel_level };
+        let ch = ChannelLevel {
+            universe_index,
+            channel,
+            channel_level,
+        };
         Ok(ch)
     }
 }
@@ -362,15 +373,17 @@ impl ReadFromBytes for Sxus {
     fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
         let universe_index = reader.read_u8()?;
         let connection_string = reader.read_bytes()?;
-        let sxus = Sxus { universe_index, connection_string };
+        let sxus = Sxus {
+            universe_index,
+            connection_string,
+        };
         Ok(sxus)
     }
 }
 
 impl<'a> SizeBytes for Capa<'a> {
     fn size_bytes(&self) -> usize {
-        mem::size_of::<u16>()
-        + self.capabilities.len() * mem::size_of::<u16>()
+        mem::size_of::<u16>() + self.capabilities.len() * mem::size_of::<u16>()
     }
 }
 
@@ -389,17 +402,16 @@ impl SizeBytes for EnId {
 impl<'a> SizeBytes for ChBk<'a> {
     fn size_bytes(&self) -> usize {
         mem::size_of::<u8>()
-        + mem::size_of::<u8>()
-        + mem::size_of::<u16>()
-        + mem::size_of::<u16>()
-        + self.channel_levels.len() * mem::size_of::<u8>()
+            + mem::size_of::<u8>()
+            + mem::size_of::<u16>()
+            + mem::size_of::<u16>()
+            + self.channel_levels.len() * mem::size_of::<u8>()
     }
 }
 
 impl<'a> SizeBytes for ChLs<'a> {
     fn size_bytes(&self) -> usize {
-        mem::size_of::<u16>()
-        + self.channel_levels.len() * mem::size_of::<ChannelLevel>()
+        mem::size_of::<u16>() + self.channel_levels.len() * mem::size_of::<ChannelLevel>()
     }
 }
 

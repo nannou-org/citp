@@ -28,10 +28,10 @@
 //! - Read the header for the second layer.
 //! - Match on the `content_type` field of the second layer to determine what type to read.
 
-pub use byteorder::{LE, ReadBytesExt, WriteBytesExt};
+pub use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::ffi::CString;
-use std::{fmt, io, mem};
 use std::hash::{Hash, Hasher};
+use std::{fmt, io, mem};
 
 /// ## CITP/PINF - Peer Information Layer
 ///
@@ -183,13 +183,13 @@ pub trait ReadBytes {
 /// Protocol types that may be written to little endian bytes.
 pub trait WriteToBytes {
     /// Write the command to bytes.
-    fn write_to_bytes<W: WriteBytesExt>(&self, W) -> io::Result<()>;
+    fn write_to_bytes<W: WriteBytesExt>(&self, writer: W) -> io::Result<()>;
 }
 
 /// Protocol types that may be read from little endian bytes.
 pub trait ReadFromBytes: Sized {
     /// Read the command from bytes.
-    fn read_from_bytes<R: ReadBytesExt>(R) -> io::Result<Self>;
+    fn read_from_bytes<R: ReadBytesExt>(reader: R) -> io::Result<Self>;
 }
 
 /// Types that have a constant size when written to or read from bytes.
@@ -241,9 +241,7 @@ pub union Kind {
 
 impl WriteToBytes for Kind {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
-        unsafe {
-            writer.write_u16::<LE>(self.request_index)
-        }
+        unsafe { writer.write_u16::<LE>(self.request_index) }
     }
 }
 
@@ -338,9 +336,7 @@ impl ReadFromBytes for CString {
                 byte => bytes.push(byte),
             }
         }
-        let cstring = unsafe {
-            CString::from_vec_unchecked(bytes)
-        };
+        let cstring = unsafe { CString::from_vec_unchecked(bytes) };
         Ok(cstring)
     }
 }
@@ -377,9 +373,7 @@ impl SizeBytes for Header {
 
 impl fmt::Debug for Kind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        unsafe {
-            write!(f, "{:?}", self.request_index)
-        }
+        unsafe { write!(f, "{:?}", self.request_index) }
     }
 }
 
@@ -387,9 +381,7 @@ impl Eq for Kind {}
 
 impl PartialEq for Kind {
     fn eq(&self, other: &Self) -> bool {
-        unsafe {
-            self.request_index == other.request_index
-        }
+        unsafe { self.request_index == other.request_index }
     }
 }
 

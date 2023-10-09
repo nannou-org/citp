@@ -1,5 +1,7 @@
-use protocol::{self, LE, ReadBytes, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes,
-               WriteBytesExt, WriteToBytes};
+use crate::protocol::{
+    self, ReadBytes, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes, WriteBytesExt,
+    WriteToBytes, LE,
+};
 use std::borrow::Cow;
 use std::ffi::CString;
 use std::{io, mem};
@@ -95,7 +97,7 @@ impl<'a> SPtc<'a> {
 
 impl WriteToBytes for Header {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
-        writer.write_bytes(&self.citp_header)?;
+        writer.write_bytes(self.citp_header)?;
         writer.write_u32::<LE>(self.content_type)?;
         writer.write_u32::<LE>(self.content_hint)?;
         Ok(())
@@ -107,7 +109,7 @@ where
     T: WriteToBytes,
 {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
-        writer.write_bytes(&self.fptc_header)?;
+        writer.write_bytes(self.fptc_header)?;
         writer.write_bytes(&self.message)?;
         Ok(())
     }
@@ -173,7 +175,9 @@ impl ReadFromBytes for UPtc<'static> {
         let fixture_count: u16 = reader.read_bytes()?;
         let fixture_identifiers = protocol::read_new_vec(reader, fixture_count as _)?;
         let fixture_identifiers = Cow::Owned(fixture_identifiers);
-        let uptc = UPtc { fixture_identifiers };
+        let uptc = UPtc {
+            fixture_identifiers,
+        };
         Ok(uptc)
     }
 }
@@ -183,7 +187,9 @@ impl ReadFromBytes for SPtc<'static> {
         let fixture_count: u16 = reader.read_bytes()?;
         let fixture_identifiers = protocol::read_new_vec(reader, fixture_count as _)?;
         let fixture_identifiers = Cow::Owned(fixture_identifiers);
-        let uptc = SPtc { fixture_identifiers };
+        let uptc = SPtc {
+            fixture_identifiers,
+        };
         Ok(uptc)
     }
 }
@@ -191,12 +197,12 @@ impl ReadFromBytes for SPtc<'static> {
 impl SizeBytes for Ptch {
     fn size_bytes(&self) -> usize {
         mem::size_of::<u16>()
-        + mem::size_of::<u8>()
-        + mem::size_of::<u8>()
-        + mem::size_of::<u16>()
-        + mem::size_of::<u16>()
-        + self.fixture_make.size_bytes()
-        + self.fixture_name.size_bytes()
+            + mem::size_of::<u8>()
+            + mem::size_of::<u8>()
+            + mem::size_of::<u16>()
+            + mem::size_of::<u16>()
+            + self.fixture_make.size_bytes()
+            + self.fixture_name.size_bytes()
     }
 }
 
