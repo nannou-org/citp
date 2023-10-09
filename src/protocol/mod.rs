@@ -245,8 +245,8 @@ pub struct Header {
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub union Kind {
-    request_index: u16,
-    in_response_to: u16,
+    pub request_index: u16,
+    pub in_response_to: u16,
 }
 
 impl WriteToBytes for Kind {
