@@ -31,8 +31,9 @@
 pub use byteorder::{ReadBytesExt, WriteBytesExt, LE};
 use std::{
     ffi::CString,
-    fmt, io, mem,
+    fmt,
     hash::{Hash, Hasher},
+    io, mem,
     str::FromStr,
 };
 
@@ -171,8 +172,8 @@ pub mod msex;
 
 /// ## CITP/CAEX - Capture Extensions layer
 ///
-/// The CITP/CAEX "Capture Extensions" layer is a set of networking messages implemented 
-/// as a private CITP (http://www.citp-protocol.org) layer. 
+/// The CITP/CAEX "Capture Extensions" layer is a set of networking messages implemented
+/// as a private CITP (http://www.citp-protocol.org) layer.
 pub mod caex;
 
 /// A trait for writing any of the CITP protocol types to little-endian bytes.

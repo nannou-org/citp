@@ -1,10 +1,7 @@
 use crate::protocol::{
-    self, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes, WriteBytesExt, WriteToBytes, LE, Ucs2,
+    self, ReadBytesExt, ReadFromBytes, SizeBytes, Ucs2, WriteBytes, WriteBytesExt, WriteToBytes, LE,
 };
-use std::{
-    borrow::Cow,
-    io, mem,
-};
+use std::{borrow::Cow, io, mem};
 
 /// The CAEX layer provides a standard, single, header used at the start of all CAEX packets.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
