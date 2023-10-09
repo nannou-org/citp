@@ -1,8 +1,5 @@
-use protocol::{self, LE, ReadBytes, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes,
-               WriteBytesExt, WriteToBytes};
+use crate::protocol;
 use std::borrow::Cow;
-use std::ffi::CString;
-use std::{io, mem};
 
 /// The MSEX layer provides a standard, single, header used at the start of all MSEX packets.
 ///

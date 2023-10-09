@@ -1,4 +1,4 @@
-use protocol::{self, LE, ReadBytes, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes,
+use crate::protocol::{self, LE, ReadBytes, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes,
                WriteBytesExt, WriteToBytes};
 use std::borrow::Cow;
 use std::ffi::CString;
@@ -193,7 +193,7 @@ impl Sxus {
 
 impl WriteToBytes for Header {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
-        writer.write_bytes(&self.citp_header)?;
+        writer.write_bytes(self.citp_header)?;
         writer.write_u32::<LE>(self.content_type)?;
         Ok(())
     }
@@ -204,7 +204,7 @@ where
     T: WriteToBytes,
 {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
-        writer.write_bytes(&self.sdmx_header)?;
+        writer.write_bytes(self.sdmx_header)?;
         writer.write_bytes(&self.message)?;
         Ok(())
     }

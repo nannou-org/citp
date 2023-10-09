@@ -8,6 +8,7 @@ keywords = ["controller", "interface", "transport", "protocol", "lighting"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/nannou-org/citp.git"
 homepage = "https://github.com/nannou-org/citp"
+edition = "2021"
 
 [dependencies]
 byteorder = "1.2.3"

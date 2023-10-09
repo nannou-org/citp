@@ -1,4 +1,4 @@
-use protocol::{self, LE, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes, WriteBytesExt,
+use crate::protocol::{self, LE, ReadBytesExt, ReadFromBytes, SizeBytes, WriteBytes, WriteBytesExt,
                WriteToBytes};
 use std::borrow::Cow;
 use std::{io, mem};
@@ -65,7 +65,7 @@ impl<'a> DeSe<'a> {
 
 impl WriteToBytes for Header {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
-        writer.write_bytes(&self.citp_header)?;
+        writer.write_bytes(self.citp_header)?;
         writer.write_u32::<LE>(self.content_type)?;
         Ok(())
     }
@@ -76,7 +76,7 @@ where
     T: WriteToBytes,
 {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
-        writer.write_bytes(&self.fsel_header)?;
+        writer.write_bytes(self.fsel_header)?;
         writer.write_bytes(&self.message)?;
         Ok(())
     }
