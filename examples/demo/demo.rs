@@ -1,15 +1,15 @@
 mod citp_tcp;
 
 use crate::citp_tcp::CaexState;
-use citp::protocol::{caex, pinf, Ucs2, ReadFromBytes, SizeBytes, WriteToBytes};
+use citp::protocol::{caex, pinf, ReadFromBytes, SizeBytes, Ucs2, WriteToBytes};
 use citp_tcp::CitpTcp;
-use socket2::{Domain, Protocol, Socket, Type, SockAddr};
+use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use std::{
     borrow::Cow,
     ffi::CString,
     io::{self, Write},
     mem::MaybeUninit,
-    net::{Ipv4Addr, SocketAddrV4, TcpStream, SocketAddr, IpAddr},
+    net::{IpAddr, Ipv4Addr, SocketAddr, SocketAddrV4, TcpStream},
     str::FromStr,
 };
 
@@ -48,13 +48,15 @@ fn main() -> io::Result<()> {
 
     loop {
         match state {
-            State::Init => match recv_socket.join_multicast_v4(&multicast_address, &Ipv4Addr::new(0, 0, 0, 0)) {
+            State::Init => match recv_socket
+                .join_multicast_v4(&multicast_address, &Ipv4Addr::new(0, 0, 0, 0))
+            {
                 Ok(_) => {
                     state = State::Connect;
                 }
                 Err(err) => eprintln!("join_multicast_v4 {:?}", err),
             },
-            State::Connect => {                
+            State::Connect => {
                 match recv_socket.recv_from(&mut buf) {
                     Ok((len, ..)) => {
                         // - Read the full base **Header** first.
@@ -67,11 +69,18 @@ fn main() -> io::Result<()> {
                                 if let pinf::PLoc::CONTENT_TYPE =
                                     &layer_two_content_type(&data, header_size).to_le_bytes()
                                 {
-                                    let ploc = citp::protocol::pinf::PLoc::read_from_bytes(&data[header_size + CONTENT_TYPE_LEN..])?;
+                                    let ploc = citp::protocol::pinf::PLoc::read_from_bytes(
+                                        &data[header_size + CONTENT_TYPE_LEN..],
+                                    )?;
                                     let name = ploc.name.to_str().unwrap().to_owned();
-                                    let tcp_addr = format!("{}:{}", extract_ip_address(&name), ploc.listening_tcp_port);
+                                    let tcp_addr = format!(
+                                        "{}:{}",
+                                        extract_ip_address(&name),
+                                        ploc.listening_tcp_port
+                                    );
 
-                                    let stream = TcpStream::connect(tcp_addr).expect("Could not connect to server");
+                                    let stream = TcpStream::connect(tcp_addr)
+                                        .expect("Could not connect to server");
                                     let mut citp_tcp = CitpTcp::new(stream)?;
                                     let pnam_message = connect_to_capture();
                                     pnam_message
@@ -87,7 +96,7 @@ fn main() -> io::Result<()> {
                             _ => eprintln!("Connect: Unrecognized UDP Header Content Type"),
                         }
                     }
-                    Err(_) => { }
+                    Err(_) => {}
                 }
             }
             State::Request => {
@@ -96,17 +105,23 @@ fn main() -> io::Result<()> {
                     let caex_state = stream.read_message()?;
                     if let Some(CaexState::EnterShow) = caex_state {
                         let enter_show = enter_show("kortex-test-suite");
-                        enter_show.write_to_bytes(&mut stream.writer).expect("Failed to write to server");
+                        enter_show
+                            .write_to_bytes(&mut stream.writer)
+                            .expect("Failed to write to server");
                         stream.writer.flush()?;
                     }
                     if let Some(CaexState::GetLaserFeedList) = caex_state {
                         let feed_list = send_laser_feed_list(source_key);
-                        feed_list.write_to_bytes(&mut stream.writer).expect("Failed to write to server");
+                        feed_list
+                            .write_to_bytes(&mut stream.writer)
+                            .expect("Failed to write to server");
                         stream.writer.flush()?;
                     }
                     if let Some(CaexState::FixtureListRequest) = caex_state {
                         let fixture_list = new_fixture_list();
-                        fixture_list.write_to_bytes(&mut stream.writer).expect("Failed to write to server");
+                        fixture_list
+                            .write_to_bytes(&mut stream.writer)
+                            .expect("Failed to write to server");
                         stream.writer.flush()?;
                         state = State::Stream;
                     }
@@ -120,7 +135,9 @@ fn main() -> io::Result<()> {
                 for i in 0..NUM_LASERS {
                     let laser_frame = stream_laser_frame(source_key, frame_num, i as u8);
                     let mut frame_buf = [0u8; 65535];
-                    laser_frame.write_to_bytes(&mut frame_buf[..]).expect("Failed to write to server");
+                    laser_frame
+                        .write_to_bytes(&mut frame_buf[..])
+                        .expect("Failed to write to server");
                     let len = laser_frame.caex_header.citp_header.message_size as usize;
                     send_socket
                         .send_to(&frame_buf[..len], &SockAddr::from(destination))

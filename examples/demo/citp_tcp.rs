@@ -1,4 +1,4 @@
-use citp::protocol::{ReadFromBytes, SizeBytes, caex, pinf, sdmx};
+use citp::protocol::{caex, pinf, sdmx, ReadFromBytes, SizeBytes};
 use std::{
     io::{self, BufRead, Write},
     net::TcpStream,
@@ -56,7 +56,8 @@ impl CitpTcp {
             let header = citp::protocol::Header::read_from_bytes(&received[..]).unwrap();
             let header_size = header.size_bytes();
             let read_offset = header_size + super::CONTENT_TYPE_LEN;
-            let message_content_type = super::layer_two_content_type(&received, header_size).to_le_bytes();
+            let message_content_type =
+                super::layer_two_content_type(&received, header_size).to_le_bytes();
             match &header.content_type.to_le_bytes() {
                 pinf::Header::CONTENT_TYPE => {
                     // - Read the header for the second layer.
@@ -84,16 +85,14 @@ impl CitpTcp {
                         caex::GetLaserFeedList::CONTENT_TYPE => {
                             caex_state = Some(CaexState::GetLaserFeedList);
                         }
-                        caex::LaserFeedList::CONTENT_TYPE => {
-                        }
+                        caex::LaserFeedList::CONTENT_TYPE => {}
                         caex::LaserFeedControl::CONTENT_TYPE => {
                             let _feed_control =
                                 caex::LaserFeedControl::read_from_bytes(&received[read_offset..])
                                     .unwrap();
                             caex_state = Some(CaexState::LaserFeedControl);
                         }
-                        caex::LaserFeedFrame::CONTENT_TYPE => {
-                        }
+                        caex::LaserFeedFrame::CONTENT_TYPE => {}
                         caex::EnterShow::CONTENT_TYPE => {
                             let _enter_show =
                                 caex::EnterShow::read_from_bytes(&received[read_offset..]).unwrap();
@@ -110,10 +109,8 @@ impl CitpTcp {
                                 caex::FixtureList::read_from_bytes(&received[read_offset..])
                                     .unwrap();
                         }
-                        caex::FixtureRemove::CONTENT_TYPE => {
-                        }
-                        caex::FixtureConsoleStatus::CONTENT_TYPE => {
-                        }
+                        caex::FixtureRemove::CONTENT_TYPE => {}
+                        caex::FixtureConsoleStatus::CONTENT_TYPE => {}
                         _ => (),
                     }
                 }
