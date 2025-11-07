@@ -44,7 +44,12 @@ fn main() -> io::Result<()> {
     let recv_socket = Socket::new(Domain::IPV4, Type::DGRAM, Some(Protocol::UDP))?;
     recv_socket.set_reuse_address(true)?;
     recv_socket.set_nonblocking(true)?;
+
+    #[cfg(not(windows))]
     recv_socket.bind(&SocketAddrV4::new(multicast_address, port).into())?;
+
+    #[cfg(windows)]
+    recv_socket.bind(&SocketAddrV4::new(Ipv4Addr::new(0, 0, 0, 0), port).into())?;
 
     loop {
         match state {
