@@ -418,6 +418,12 @@ impl WriteToBytes for EnterShow {
     }
 }
 
+impl WriteToBytes for LeaveShow {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        Ok(())
+    }
+}
+
 impl<'a> WriteToBytes for FixtureList<'a> {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
         writer.write_u8(self.message_type.into())?;
@@ -547,6 +553,12 @@ impl ReadFromBytes for EnterShow {
     }
 }
 
+impl ReadFromBytes for LeaveShow {
+    fn read_from_bytes<R: ReadBytesExt>(reader: R) -> io::Result<Self> {
+        Ok(LeaveShow {})
+    }
+}
+
 impl<'a> ReadFromBytes for FixtureList<'a> {
     fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
         let message_type: FixtureListMessageType = reader.read_u8()?.into();
@@ -642,6 +654,12 @@ impl<'a> ReadFromBytes for FixtureRemove<'a> {
 impl SizeBytes for EnterShow {
     fn size_bytes(&self) -> usize {
         self.name.size_bytes()
+    }
+}
+
+impl SizeBytes for LeaveShow {
+    fn size_bytes(&self) -> usize {
+        0
     }
 }
 
