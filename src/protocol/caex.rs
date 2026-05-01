@@ -14,7 +14,7 @@ pub struct Header {
 }
 
 /// This message must be sent by Capture or a peer in response to any unknown message or any request that prompts a reply
-/// which cannot be served. The CITP header RequestIndex and InResponseTo fields must be honored when sending this
+/// which cannot be served. The CITP header RequestIndex and InResponseTo fields must be honoured when sending this
 /// message.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(C)]
@@ -22,7 +22,7 @@ pub struct Nack {
     pub reason: NackReason,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(u8)]
 pub enum NackReason {
     UnknownRequest = 0x00,
@@ -43,6 +43,17 @@ impl From<u8> for NackReason {
     }
 }
 
+impl From<NackReason> for u8 {
+    fn from(value: NackReason) -> Self {
+        match value {
+            NackReason::UnknownRequest => 0x00,
+            NackReason::IncorrectRequest => 0x01,
+            NackReason::InternalError => 0x02,
+            NackReason::RequestRefused => 0x03,
+        }
+    }
+}
+
 /// Layout of CAEX messages.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(C)]
@@ -51,6 +62,76 @@ pub struct Message<T> {
     pub caex_header: Header,
     /// The data for the message.
     pub message: T,
+}
+
+/// ## CAEX / Live View Messages.
+///
+/// Capture allows a peer to interact with one of its views in live mode. If no view is in live mode, these features will
+/// not be available. If multiple views are in live mode, the first view in live mode will be the one with which the peer
+/// can interact.
+
+/// This message is sent to Capture as a request for a LiveViewStatus reply.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[repr(C)]
+pub struct GetLiveViewStatus {}
+
+/// This message is sent by Capture in reply to a GetLiveViewStatus message.
+#[derive(Clone, Debug, PartialEq)]
+#[repr(C)]
+pub struct LiveViewStatus {
+    /// 0x00 = Not available.
+    /// 0x01 = Alpha view available.
+    /// 0x02 = Beta view available.
+    /// 0x03 = Gamma view available.
+    pub availability: u8,
+    /// The width and height of the view.
+    pub size: (u16, u16),
+    /// The XYZ position of the camera.
+    pub camera_position: [f32; 3],
+    /// The XYZ focus of the camera.
+    pub camera_focus: [f32; 3],
+}
+
+/// This message is sent to Capture as a request for a LiveViewImage reply.
+#[derive(Clone, Debug, PartialEq)]
+#[repr(C)]
+pub struct GetLiveViewImage {
+    /// 0x01 = JPEG
+    pub format: u8,
+    /// The width and height requested.
+    pub resolution: (u16, u16),
+    /// The position of the camera, as XYZ.
+    pub camera_position: [f32; 3],
+    /// The focus of the camera, as XYZ.
+    pub camera_focus: [f32; 3],
+}
+
+/// This message is sent by Capture in reply to a GetLiveViewImage message.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[repr(C)]
+pub struct LiveViewImage<'a> {
+    /// 0x01 = JPEG
+    pub format: u8,
+    /// The number of bytes in the following field.
+    pub data_size: u32,
+    /// Image data.
+    pub data: Cow<'a, [u8]>,
+}
+
+impl GetLiveViewStatus {
+    pub const CONTENT_TYPE: u32 = 0x00000100;
+}
+
+impl LiveViewStatus {
+    pub const CONTENT_TYPE: u32 = 0x00000101;
+}
+
+impl GetLiveViewImage {
+    pub const CONTENT_TYPE: u32 = 0x00000200;
+}
+
+impl LiveViewImage<'_> {
+    pub const CONTENT_TYPE: u32 = 0x00000201;
 }
 
 /// ## CAEX / Show Synchronization Messages.
@@ -91,6 +172,16 @@ pub struct EnterShow {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(C)]
 pub struct LeaveShow {}
+
+/// This message is sent unsolicited by the peer to Capture in order to choose which transformation space to use for
+/// fixtures. The Native transformation space was the only available until this message was introduced and is the one
+/// used by Capture. The PanHome transformation attempts to orient moving heads so that they tilt away from and
+/// towards the audience. This may fail for fixtures with multiple axis or unconventional constructions.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[repr(C)]
+pub struct SetFixtureTransformationSpace {
+    pub transformation_space: u8,
+}
 
 /// This message can be sent unsolicited by Capture or a peer in order to acquire the full patch list from the other side. The
 /// expected response is a FixtureList message with Type = 0x00.
@@ -210,7 +301,7 @@ pub struct Fixture<'a> {
     pub identifier_count: u8,
     /// The fixtures identifiers
     pub identifiers: Cow<'a, [Identifier<'a>]>,
-    /// The DMX patching and viz position and roation information
+    /// The DMX patching and viz position and rotation information
     pub data: FixtureData,
 }
 
@@ -237,10 +328,66 @@ pub struct FixtureData {
     pub angles: [f32; 3],
 }
 
+/// This message can be sent to Capture in order to set the fixture identifier of a fixture based on its instance id (the
+/// 0x04 identifier type of the FixtureList message). This is only required in the specific scenario of a fixture being
+/// added in Capture and then patched on the console. The console can then respond to the addition of the fixture
+/// with a FixtureIdentify message before it sends the FixtureModify message (which relies on the identifier having
+/// been set).
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[repr(C)]
+pub struct FixtureIdentify<'a> {
+    /// The number of fixture identifications following.
+    pub fixture_count: u16,
+    /// Array of fixture identifications.
+    pub fixture_identifications: Cow<'a, [FixtureIdentification]>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[repr(C)]
+pub struct FixtureIdentification {
+    // The instance id of the fixture.
+    pub capture_instance_id: [u8; 16],
+    /// The fixture identifier to set.
+    pub fixture_identifier: u32,
+}
+
+/// This message is sent unsolicited by both Capture and the peer whenever a fixture has been modified. All fields
+/// must always be present, but it is important that the ChangedFields field indicates which have actually been modified.
+#[derive(Clone, Debug, PartialEq)]
+#[repr(C)]
+pub struct FixtureModify<'a> {
+    /// The number of fixtures following.
+    pub fixture_count: u16,
+    /// Array of fixture modifications.
+    pub fixture_modifications: Cow<'a, [FixtureModification]>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+#[repr(C)]
+pub struct FixtureModification {
+    // Console's fixture identifier.
+    pub fixture_identifier: u32,
+    // Bitmask indicating which of the following fields have changed.
+    pub changed_fields: u8,
+    /// The DMX patching and viz position and rotation information
+    pub data: FixtureData,
+}
+
 /// This message is sent unsolicited by both Capture and the peer whenever on or more fixture(s) have been removed.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[repr(C)]
 pub struct FixtureRemove<'a> {
+    /// The number of fixture identifiers following.
+    pub fixture_count: u16,
+    /// Array of fixture identifiers.
+    pub fixture_identifiers: Cow<'a, [u32]>,
+}
+
+/// This message is sent unsolicited by by both Capture and the peer to inform the other side of a new fixture selection.
+/// Note that the order of the fixture identifiers should carry the order in which the fixture(s) were selected.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[repr(C)]
+pub struct FixtureSelection<'a> {
     /// The number of fixture identifiers following.
     pub fixture_count: u16,
     /// Array of fixture identifiers.
@@ -277,6 +424,10 @@ impl LeaveShow {
     pub const CONTENT_TYPE: u32 = 0x00020101;
 }
 
+impl SetFixtureTransformationSpace {
+    pub const CONTENT_TYPE: u32 = 0x00020150;
+}
+
 impl FixtureListRequest {
     pub const CONTENT_TYPE: u32 = 0x00020200;
 }
@@ -285,8 +436,20 @@ impl<'a> FixtureList<'a> {
     pub const CONTENT_TYPE: u32 = 0x00020201;
 }
 
+impl<'a> FixtureIdentify<'a> {
+    pub const CONTENT_TYPE: u32 = 0x00020204;
+}
+
+impl<'a> FixtureModify<'a> {
+    pub const CONTENT_TYPE: u32 = 0x00020202;
+}
+
 impl<'a> FixtureRemove<'a> {
     pub const CONTENT_TYPE: u32 = 0x00020203;
+}
+
+impl<'a> FixtureSelection<'a> {
+    pub const CONTENT_TYPE: u32 = 0x00020300;
 }
 
 impl<'a> FixtureConsoleStatus<'a> {
@@ -400,6 +563,13 @@ impl WriteToBytes for Header {
     }
 }
 
+impl WriteToBytes for Nack {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u8(self.reason.into())?;
+        Ok(())
+    }
+}
+
 impl<T> WriteToBytes for Message<T>
 where
     T: WriteToBytes,
@@ -411,9 +581,73 @@ where
     }
 }
 
+impl WriteToBytes for GetLiveViewStatus {
+    fn write_to_bytes<W: WriteBytesExt>(&self, _writer: W) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl WriteToBytes for LiveViewStatus {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u8(self.availability)?;
+        writer.write_u16::<LE>(self.size.0)?;
+        writer.write_u16::<LE>(self.size.1)?;
+        writer.write_f32::<LE>(self.camera_position[0])?;
+        writer.write_f32::<LE>(self.camera_position[1])?;
+        writer.write_f32::<LE>(self.camera_position[2])?;
+        writer.write_f32::<LE>(self.camera_focus[0])?;
+        writer.write_f32::<LE>(self.camera_focus[1])?;
+        writer.write_f32::<LE>(self.camera_focus[2])?;
+        Ok(())
+    }
+}
+
+impl WriteToBytes for GetLiveViewImage {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u8(self.format)?;
+        writer.write_u16::<LE>(self.resolution.0)?;
+        writer.write_u16::<LE>(self.resolution.1)?;
+        writer.write_f32::<LE>(self.camera_position[0])?;
+        writer.write_f32::<LE>(self.camera_position[1])?;
+        writer.write_f32::<LE>(self.camera_position[2])?;
+        writer.write_f32::<LE>(self.camera_focus[0])?;
+        writer.write_f32::<LE>(self.camera_focus[1])?;
+        writer.write_f32::<LE>(self.camera_focus[2])?;
+        Ok(())
+    }
+}
+
+impl WriteToBytes for LiveViewImage<'_> {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u8(self.format)?;
+        writer.write_u32::<LE>(self.data_size)?;
+        writer.write_all(&self.data)?;
+        Ok(())
+    }
+}
+
 impl WriteToBytes for EnterShow {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
         self.name.write_to_bytes(&mut writer)?;
+        Ok(())
+    }
+}
+
+impl WriteToBytes for LeaveShow {
+    fn write_to_bytes<W: WriteBytesExt>(&self, _writer: W) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl WriteToBytes for SetFixtureTransformationSpace {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u8(self.transformation_space)?;
+        Ok(())
+    }
+}
+
+impl WriteToBytes for FixtureListRequest {
+    fn write_to_bytes<W: WriteBytesExt>(&self, _writer: W) -> io::Result<()> {
         Ok(())
     }
 }
@@ -450,9 +684,7 @@ impl<'a> WriteToBytes for Identifier<'a> {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
         writer.write_u8(self.identifier_type.into())?;
         writer.write_u16::<LE>(self.data_size)?;
-        for i in 0..self.data_size {
-            writer.write_u8(self.data[i as usize])?;
-        }
+        writer.write_all(&self.data)?;
         Ok(())
     }
 }
@@ -476,12 +708,84 @@ impl WriteToBytes for FixtureData {
     }
 }
 
+impl<'a> WriteToBytes for FixtureIdentify<'a> {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u16::<LE>(self.fixture_count)?;
+        for id in self.fixture_identifications.iter() {
+            id.write_to_bytes(&mut writer)?;
+        }
+        Ok(())
+    }
+}
+
+impl WriteToBytes for FixtureIdentification {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_all(&self.capture_instance_id)?;
+        writer.write_u32::<LE>(self.fixture_identifier)?;
+        Ok(())
+    }
+}
+
+impl<'a> WriteToBytes for FixtureModify<'a> {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u16::<LE>(self.fixture_count)?;
+        for fix in self.fixture_modifications.iter() {
+            fix.write_to_bytes(&mut writer)?;
+        }
+        Ok(())
+    }
+}
+
+impl WriteToBytes for FixtureModification {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u32::<LE>(self.fixture_identifier)?;
+        writer.write_u8(self.changed_fields)?;
+        self.data.write_to_bytes(writer)?;
+        Ok(())
+    }
+}
+
 impl<'a> WriteToBytes for FixtureRemove<'a> {
     fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
         writer.write_u16::<LE>(self.fixture_count)?;
         for id in self.fixture_identifiers.iter() {
             writer.write_u32::<LE>(*id)?;
         }
+        Ok(())
+    }
+}
+
+impl<'a> WriteToBytes for FixtureSelection<'a> {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u16::<LE>(self.fixture_count)?;
+        for id in self.fixture_identifiers.iter() {
+            writer.write_u32::<LE>(*id)?;
+        }
+        Ok(())
+    }
+}
+
+impl<'a> WriteToBytes for FixtureConsoleStatus<'a> {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u16::<LE>(self.fixture_count)?;
+        for state in self.fixtures_state.iter() {
+            state.write_to_bytes(&mut writer)?;
+        }
+        Ok(())
+    }
+}
+
+impl WriteToBytes for FixtureState {
+    fn write_to_bytes<W: WriteBytesExt>(&self, mut writer: W) -> io::Result<()> {
+        writer.write_u32::<LE>(self.fixture_identifier)?;
+        writer.write_u8(self.locked)?;
+        writer.write_u8(self.clearable)?;
+        Ok(())
+    }
+}
+
+impl WriteToBytes for GetLaserFeedList {
+    fn write_to_bytes<W: WriteBytesExt>(&self, _writer: W) -> io::Result<()> {
         Ok(())
     }
 }
@@ -540,10 +844,87 @@ impl ReadFromBytes for LaserFeedControl {
     }
 }
 
+impl ReadFromBytes for LiveViewStatus {
+    fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
+        let availability = reader.read_u8()?;
+        let size_w = reader.read_u16::<LE>()?;
+        let size_h = reader.read_u16::<LE>()?;
+        let position = [
+            reader.read_f32::<LE>()?,
+            reader.read_f32::<LE>()?,
+            reader.read_f32::<LE>()?,
+        ];
+        let focus = [
+            reader.read_f32::<LE>()?,
+            reader.read_f32::<LE>()?,
+            reader.read_f32::<LE>()?,
+        ];
+        Ok(LiveViewStatus {
+            availability,
+            size: (
+                size_w,
+                size_h
+            ),
+            camera_position: position,
+            camera_focus: focus,
+        })
+    }
+}
+
+impl ReadFromBytes for GetLiveViewImage {
+    fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
+        let format = reader.read_u8()?;
+        let res_w = reader.read_u16::<LE>()?;
+        let res_h = reader.read_u16::<LE>()?;
+        let position = [
+            reader.read_f32::<LE>()?,
+            reader.read_f32::<LE>()?,
+            reader.read_f32::<LE>()?,
+        ];
+        let focus = [
+            reader.read_f32::<LE>()?,
+            reader.read_f32::<LE>()?,
+            reader.read_f32::<LE>()?,
+        ];
+        Ok(GetLiveViewImage {
+            format,
+            resolution: (
+                res_w,
+                res_h
+            ),
+            camera_position: position,
+            camera_focus: focus,
+        })
+    }
+}
+
+impl ReadFromBytes for LiveViewImage<'_> {
+    fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
+        let format = reader.read_u8()?;
+        let data_size = reader.read_u32::<LE>()?;
+        let mut data = vec![0u8; data_size as usize];
+        reader.read_exact(&mut data)?;
+        Ok(LiveViewImage {
+            format,
+            data_size,
+            data: Cow::Owned(data),
+        })
+    }
+}
+
 impl ReadFromBytes for EnterShow {
     fn read_from_bytes<R: ReadBytesExt>(reader: R) -> io::Result<Self> {
         let name = Ucs2::read_from_bytes(reader)?;
         Ok(EnterShow { name })
+    }
+}
+
+impl ReadFromBytes for SetFixtureTransformationSpace {
+    fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
+        let transformation_space = reader.read_u8()?;
+        Ok(SetFixtureTransformationSpace {
+            transformation_space,
+        })
     }
 }
 
@@ -625,6 +1006,47 @@ impl ReadFromBytes for FixtureData {
     }
 }
 
+impl<'a> ReadFromBytes for FixtureIdentify<'a> {
+    fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
+        let fixture_count = reader.read_u16::<LE>()?;
+        let mut fixture_identifications = Vec::with_capacity(fixture_count as usize);
+        for _ in 0..fixture_count {
+            let mut capture_instance_id = [0u8; 16];
+            reader.read_exact(&mut capture_instance_id)?;
+            let fixture_identifier = reader.read_u32::<LE>()?;
+            fixture_identifications.push(FixtureIdentification {
+                capture_instance_id,
+                fixture_identifier,
+            });
+        }
+        Ok(FixtureIdentify {
+            fixture_count,
+            fixture_identifications: Cow::Owned(fixture_identifications),
+        })
+    }
+}
+
+impl<'a> ReadFromBytes for FixtureModify<'a> {
+    fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
+        let fixture_count = reader.read_u16::<LE>()?;
+        let mut fixture_modifications = Vec::with_capacity(fixture_count as usize);
+        for _ in 0..fixture_count {
+            let fixture_identifier = reader.read_u32::<LE>()?;
+            let changed_fields = reader.read_u8()?;
+            let data = FixtureData::read_from_bytes(&mut reader)?;
+            fixture_modifications.push(FixtureModification {
+                fixture_identifier,
+                changed_fields,
+                data,
+            });
+        }
+        Ok(FixtureModify {
+            fixture_count,
+            fixture_modifications: Cow::Owned(fixture_modifications),
+        })
+    }
+}
+
 impl<'a> ReadFromBytes for FixtureRemove<'a> {
     fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
         let fixture_count = reader.read_u16::<LE>()?;
@@ -639,9 +1061,76 @@ impl<'a> ReadFromBytes for FixtureRemove<'a> {
     }
 }
 
+impl<'a> ReadFromBytes for FixtureSelection<'a> {
+    fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
+        let fixture_count = reader.read_u16::<LE>()?;
+        let mut fixture_identifiers = Vec::with_capacity(fixture_count as usize);
+        for _ in 0..fixture_count {
+            fixture_identifiers.push(reader.read_u32::<LE>()?);
+        }
+        Ok(FixtureSelection {
+            fixture_count,
+            fixture_identifiers: Cow::Owned(fixture_identifiers),
+        })
+    }
+}
+
+impl<'a> ReadFromBytes for FixtureConsoleStatus<'a> {
+    fn read_from_bytes<R: ReadBytesExt>(mut reader: R) -> io::Result<Self> {
+        let fixture_count = reader.read_u16::<LE>()?;
+        let mut fixtures_state = Vec::with_capacity(fixture_count as usize);
+        for _ in 0..fixture_count {
+            let fixture_identifier = reader.read_u32::<LE>()?;
+            let locked = reader.read_u8()?;
+            let clearable = reader.read_u8()?;
+            fixtures_state.push(FixtureState {
+                fixture_identifier,
+                locked,
+                clearable,
+            });
+        }
+        Ok(FixtureConsoleStatus {
+            fixture_count,
+            fixtures_state: Cow::Owned(fixtures_state),
+        })
+    }
+}
+
+impl SizeBytes for LiveViewStatus {
+    fn size_bytes(&self) -> usize {
+        mem::size_of::<u8>()
+            + (mem::size_of::<u16>() * 2)
+            + (mem::size_of::<f32>() * 3)
+            + (mem::size_of::<f32>() * 3)
+    }
+}
+
+impl SizeBytes for GetLiveViewImage {
+    fn size_bytes(&self) -> usize {
+        mem::size_of::<u8>()
+            + (mem::size_of::<u16>() * 2)
+            + (mem::size_of::<f32>() * 3)
+            + (mem::size_of::<f32>() * 3)
+    }
+}
+
+impl SizeBytes for LiveViewImage<'_> {
+    fn size_bytes(&self) -> usize {
+        mem::size_of::<u8>()
+            + mem::size_of::<u32>()
+            + self.data.len()
+    }
+}
+
 impl SizeBytes for EnterShow {
     fn size_bytes(&self) -> usize {
         self.name.size_bytes()
+    }
+}
+
+impl SizeBytes for SetFixtureTransformationSpace {
+    fn size_bytes(&self) -> usize {
+        mem::size_of::<u8>()
     }
 }
 
@@ -698,6 +1187,36 @@ impl SizeBytes for FixtureData {
     }
 }
 
+impl<'a> SizeBytes for FixtureIdentify<'a> {
+    fn size_bytes(&self) -> usize {
+        let fixture_ident_size
+            = mem::size_of::<[u8; 16]>()
+            + mem::size_of::<u32>();
+
+        mem::size_of::<u16>()
+            + (fixture_ident_size * self.fixture_identifications.len())
+    }
+}
+
+impl<'a> SizeBytes for FixtureModify<'a> {
+    fn size_bytes(&self) -> usize {
+        let mut fixture_mods_size = 0;
+        for fix in self.fixture_modifications.iter() {
+            fixture_mods_size += fix.size_bytes();
+        }
+
+        mem::size_of::<u16>() + fixture_mods_size
+    }
+}
+
+impl SizeBytes for FixtureModification {
+    fn size_bytes(&self) -> usize {
+        mem::size_of::<u32>()
+            + mem::size_of::<u8>()
+            + self.data.size_bytes()
+    }
+}
+
 impl<'a> SizeBytes for FixtureRemove<'a> {
     fn size_bytes(&self) -> usize {
         let mut fixture_ids_size = 0;
@@ -706,6 +1225,24 @@ impl<'a> SizeBytes for FixtureRemove<'a> {
         }
 
         mem::size_of::<u16>() + fixture_ids_size
+    }
+}
+
+impl<'a> SizeBytes for FixtureSelection<'a> {
+    fn size_bytes(&self) -> usize {
+        mem::size_of::<u16>()
+            + (mem::size_of::<u32>() * self.fixture_identifiers.len())
+    }
+}
+
+impl<'a> SizeBytes for FixtureConsoleStatus<'a> {
+    fn size_bytes(&self) -> usize {
+        let fixture_state_len
+            = mem::size_of::<u32>()
+            + mem::size_of::<u8>()
+            + mem::size_of::<u8>();
+        mem::size_of::<u16>()
+            + (fixture_state_len * self.fixtures_state.len())
     }
 }
 
