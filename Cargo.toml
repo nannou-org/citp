@@ -22,3 +22,6 @@ socket2 = "0.5.3"
 name = "demo"
 path = "examples/demo/demo.rs"
 
+[[example]]
+name = "live_view"
+path = "examples/live_view/live_view.rs"

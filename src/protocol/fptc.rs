@@ -208,12 +208,14 @@ impl SizeBytes for Ptch {
 
 impl<'a> SizeBytes for UPtc<'a> {
     fn size_bytes(&self) -> usize {
-        self.fixture_identifiers.len() * mem::size_of::<u16>()
+        mem::size_of::<u16>()
+            + (self.fixture_identifiers.len() * mem::size_of::<u16>())
     }
 }
 
 impl<'a> SizeBytes for SPtc<'a> {
     fn size_bytes(&self) -> usize {
-        self.fixture_identifiers.len() * mem::size_of::<u16>()
+        mem::size_of::<u16>()
+            + (self.fixture_identifiers.len() * mem::size_of::<u16>())
     }
 }
